@@ -57,7 +57,7 @@ class LTNObject:
         self.value = value
         self.free_vars = var_labels
 
-    def __repr__(self):
+    def __repr__(self):#w.r.t toString() in java
         return "LTNObject(value=" + str(self.value) + ", free_vars=" + str(self.free_vars) + ")"
 
     def shape(self):
@@ -250,7 +250,8 @@ class Variable(LTNObject):
     def __repr__(self):
         return "Variable(value=" + str(self.value) + ", free_vars=" + str(self.free_vars) + ")"
 
-
+#两个功能，1 排序，使得不同的排列变成相同的 2 不同的object的第一维，就是论域的常量数不同，无法运算，这里做升维后复制。或者
+#常量和变量之间的运算，也需要类似的处理
 def process_ltn_objects(objects):
     """
     This function prepares the list of LTN objects given in input for a predicate, function, or connective computation.
@@ -296,35 +297,38 @@ def process_ltn_objects(objects):
     # grad_fn attribute, namely it is a leaf tensor
     objects_ = [LTNObject(torch.clone(o.value), copy.deepcopy(o.free_vars))
                 if (o.value.grad_fn is None or (isinstance(o, (Constant, Variable)) and o.value.grad_fn is not None))
-                else o for o in objects]
+                else o for o in objects]#生成LTNObject列表,clone后的对象是可导的，梯度会回传到原始对象上.clone只处理张量
     # this deep copy is necessary to avoid the function directly changes the free
     # variables and values contained in the given LTN objects. We do not want to directly change the input objects
     # Instead, we need to create new objects based on the input objects since it is possible we have to reuse the
     # input objects again in coming steps.
     vars_to_n = {}  # dict which maps each var to the number of its individuals
-    for o in objects_:
+    #将free_vars内变量label映射到它的张量的第一维数量,注意：函数的输入变量objects的所有对象内的free_vars
+    for o in objects_:#objects_是LTNObject列表
         for (v_idx, v) in enumerate(o.free_vars):
             vars_to_n[v] = o.shape()[v_idx]
-    vars = list(vars_to_n.keys())  # list of var labels
+    vars = list(vars_to_n.keys())  # list of var labels,这个是整体顺序
     n_individuals_per_var = list(vars_to_n.values())  # list of n individuals for each var
     proc_objs = []  # list of processed objects
     for o in objects_:
-        vars_in_obj = o.free_vars
-        vars_not_in_obj = list(set(vars).difference(vars_in_obj))
+        vars_in_obj = o.free_vars#当前变量的已有的free变量的数量
+        vars_not_in_obj = list(set(vars).difference(vars_in_obj))#找出当前对象的freevars和全体freevars的差,赋值给vars_not_in_obj
         for new_var in vars_not_in_obj:
             new_var_idx = len(vars_in_obj)
-            o.value = torch.unsqueeze(o.value, dim=new_var_idx)
+            o.value = torch.unsqueeze(o.value, dim=new_var_idx)#增加一维
             # repeat existing dims along the new dim related to the new variable that has to be added to the object
-            o.value = torch.repeat_interleave(o.value, repeats=vars_to_n[new_var], dim=new_var_idx)
-            vars_in_obj.append(new_var)
+            o.value = torch.repeat_interleave(o.value, repeats=vars_to_n[new_var], dim=new_var_idx)#数据扩维,repeats是次数,必须加入到前面Unsqueeze那个维度中
+            vars_in_obj.append(new_var)#记录顺序
 
         # permute the dimensions of the object in such a way the shapes of the processed objects is the same
         # the shape is computed based on the order in which the variables are found at the beginning of this function
         dims_permutation = [vars_in_obj.index(var) for var in vars] + list(range(len(vars_in_obj), len(o.shape())))
+        #按照整体顺序vars定所有维度的顺序
         o.value = o.value.permute(dims_permutation)
 
         # this flats the batch dimension of the processed LTN object if the flat is set to True
-        flatten_shape = [-1] + list(o.shape()[len(vars_in_obj)::])
+        flatten_shape = [-1] + list(o.shape()[len(vars_in_obj)::])#::是列表切片,运行后保留len(vars_in_obj)后所有维度
+        #
         o.value = torch.reshape(o.value, shape=tuple(flatten_shape))
 
         # change the free variables of the LTN object since it contains now new variables on it
@@ -333,7 +337,7 @@ def process_ltn_objects(objects):
         # operators
         o.free_vars = vars
         proc_objs.append(o)
-
+    #1 加工好的对象列表 2 对象label的列表，有顺序 3
     return proc_objs, vars, n_individuals_per_var
 
 
@@ -486,7 +490,7 @@ class Predicate(nn.Module):
     >>> print(out.free_vars)
     []
     >>> print(out.shape())
-    torch.Size([])
+    torch.Size([])这个是标量
 
     Evaluation of a unary predicate on a variable. Note that:
 
@@ -611,12 +615,12 @@ class Predicate(nn.Module):
                                                                                                       for i in inputs]))
 
         proc_objs, output_vars, output_shape = process_ltn_objects(inputs)
-
+#1.处理后的对象/张量列表 2.全局自由变量列表 3.输出形状信息
         # the management of the input is left to the model or the lambda function
         output = self.model(*[o.value for o in proc_objs], **kwargs)
-
+        #output维度不确定，通常是参数的维度的笛卡尔积
         # check if output of predicate contains only truth values, namely values in the range [0., 1.]
-        if not torch.all(torch.where(torch.logical_and(output >= 0., output <= 1.), 1., 0.)):
+        if not torch.all(torch.where(torch.logical_and(output >= 0., output <= 1.), 1., 0.)):#torch.where逐元素的三元符号
             raise ValueError("Expected the output of a predicate to be in the range [0., 1.], but got some values "
                              "outside of this range. Check your predicate implementation!")
 
