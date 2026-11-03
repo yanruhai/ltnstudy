@@ -311,7 +311,7 @@ def process_ltn_objects(objects):
     n_individuals_per_var = list(vars_to_n.values())  # list of n individuals for each var
     proc_objs = []  # list of processed objects
     for o in objects_:
-        vars_in_obj = o.free_vars#当前变量的已有的free变量的数量
+        vars_in_obj = o.free_vars#当前变量的已有的free变量
         vars_not_in_obj = list(set(vars).difference(vars_in_obj))#找出当前对象的freevars和全体freevars的差,赋值给vars_not_in_obj
         for new_var in vars_not_in_obj:
             new_var_idx = len(vars_in_obj)
@@ -337,7 +337,7 @@ def process_ltn_objects(objects):
         # operators
         o.free_vars = vars
         proc_objs.append(o)
-    #1 加工好的对象列表 2 对象label的列表，有顺序 3
+    #1 加工好的对象列表 2 对象label的列表，有顺序 3原始对象label对应的第一维的维度,这个维度是用来表示领域内常量的个数
     return proc_objs, vars, n_individuals_per_var
 
 
@@ -364,7 +364,7 @@ class LambdaModel(nn.Module):
 
 
 class Predicate(nn.Module):
-    """
+    r"""
     Class representing an LTN predicate.
 
     An LTN predicate is :ref:`grounded <notegrounding>` as a mathematical function (either pre-defined or learnable)
