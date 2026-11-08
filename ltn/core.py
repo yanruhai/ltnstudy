@@ -328,7 +328,7 @@ def process_ltn_objects(objects):
 
         # this flats the batch dimension of the processed LTN object if the flat is set to True
         flatten_shape = [-1] + list(o.shape()[len(vars_in_obj)::])#::是列表切片,运行后保留len(vars_in_obj)后所有维度
-        #
+        #拍扁
         o.value = torch.reshape(o.value, shape=tuple(flatten_shape))
 
         # change the free variables of the LTN object since it contains now new variables on it
@@ -898,7 +898,7 @@ class Function(nn.Module):
         output = self.model(*[o.value for o in proc_objs], **kwargs)
 
         output = torch.reshape(output, tuple(output_shape + list(output.shape[1::])))
-
+        #保证free variable的维度运算后不变化，和predicate的区别在于这里不会压缩feature维度
         output = output.float()
 
         return LTNObject(output, output_vars)
@@ -992,12 +992,12 @@ def diag(*vars):
     # check if variables have the same number of individuals, assuming the first dimension is the batch dimension
     n_individuals = [var.shape()[0] for var in vars]
     if not len(
-        set(n_individuals)) == 1:
+        set(n_individuals)) == 1:#所有变量的第一维要相同
         raise ValueError("Expected the given LTN variables to have the same number of individuals, "
                          "but got the following numbers of individuals " + str([v.shape()[0] for v in vars]))
     diag_label = "diag_" + "_".join([var.latent_var for var in vars])
     for var in vars:
-        var.free_vars = [diag_label]
+        var.free_vars = [diag_label]#生成类似diag_x_y，满足ltnobject类的设定
     return vars
 
 
