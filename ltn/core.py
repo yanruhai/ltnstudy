@@ -1477,7 +1477,7 @@ class Quantifier:
         # check if formula is in [0., 1.]
         ltn.fuzzy_ops.check_values(formula.value)
 
-        if isinstance(vars, Variable):
+        if isinstance(vars, Variable):#防止单个量词，做成列表后续来统一使用set去重
             vars = [vars]  # this serves in the case vars is just a variable and not a list of variables
 
         # aggregation_vars contains the labels of the variables on which the quantification has to be performed

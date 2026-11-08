@@ -15,6 +15,7 @@ y = ltn.Variable('y', torch.tensor([[2.3, 0.3, 0.4],
                                          [2.3, 1.4, 1.4]]))
 out = p(x, y)
 print(out)
+#print('out.shape:'+str(out.shape()))
 
 Forall = ltn.Quantifier(ltn.fuzzy_ops.AggregPMeanError(), quantifier='f')
 print(Forall)
