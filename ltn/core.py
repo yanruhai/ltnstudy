@@ -1485,7 +1485,8 @@ class Quantifier:
 
         # check if guarded quantification has to be performed
         if cond_fn is not None and cond_vars is not None:
-            # check that cond_vars are LTN variables
+            # check that cond_vars are LTN variables,如果是列表类型，就用all检查所有是否是varibale对象，如果不是列表
+            #就单个判断是否是variable
             if not all(isinstance(x, Variable) for x in cond_vars) if isinstance(cond_vars, list) \
                     else not isinstance(cond_vars, Variable):
                 raise TypeError("Expected parameter 'cond_vars' to be a list of Variable or a "
@@ -1541,7 +1542,7 @@ class Quantifier:
         cond_vars: :obj:`list`
             List of LTN variables that appear in the guarded quantification condition.
         cond_fn: :class:`function`
-            Function which implements the guarded quantification condition.
+            Function which implements the guarded quantification condition.需要将cond_vars传入再计算
         aggregation_vars: :obj:`list`
             List of labels of the variables on which the quantification has to be performed.
 
@@ -1556,10 +1557,12 @@ class Quantifier:
         # reshape the formula in such a way it now includes the dimensions related to the variables in the condition
         # this has to be done only if the formula does not include some variables in the condition yet
         cond_vars_not_in_formula = [var for var in cond_vars if var.free_vars[0] not in formula.free_vars]
-        if cond_vars_not_in_formula:
+        #变量层面上，free_vars列表只有一个字符串元素
+        if cond_vars_not_in_formula:#如果列表非空
             proc_objs, _, n_ind = process_ltn_objects([formula] + cond_vars_not_in_formula)
+            #n_ind是label对应的维度0的数量,list类型,proc_objs只有一个元素
             formula = proc_objs[0]
-            formula.value = formula.value.view(tuple(n_ind))
+            formula.value = formula.value.view(tuple(n_ind))#调整维度
 
         # set the masked (guarded) vars on the first axes
         vars_in_cond_labels = [var.free_vars[0] for var in cond_vars]
