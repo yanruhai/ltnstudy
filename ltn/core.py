@@ -1536,6 +1536,7 @@ class Quantifier:
 
         Parameters
         ----------
+        举例 age(x)<age(y),则传入的cond_vars=[x,y],cond_fn=lambda x,y: age(x)<age(y),cond_fn也可以是普通函数
         formula: :class:`LTNObject`
             Formula that has to be quantified.
         cond_vars: :obj:`list`
@@ -1555,6 +1556,7 @@ class Quantifier:
         """
         # reshape the formula in such a way it now includes the dimensions related to the variables in the condition
         # this has to be done only if the formula does not include some variables in the condition yet
+        #这个防御没有必要，类似公式age(x)<age(y),cond_vars=[x,y],出现了x,y不在公式formula里面出现，本身式子就是错误的
         cond_vars_not_in_formula = [var for var in cond_vars if var.free_vars[0] not in formula.free_vars]
         if cond_vars_not_in_formula:
             proc_objs, _, n_ind = process_ltn_objects([formula] + cond_vars_not_in_formula)
@@ -1564,36 +1566,39 @@ class Quantifier:
         # set the masked (guarded) vars on the first axes
         vars_in_cond_labels = [var.free_vars[0] for var in cond_vars]
         vars_in_cond_not_agg_labels = [var for var in vars_in_cond_labels if var not in aggregation_vars]
-        vars_in_cond_agg_labels = [var for var in vars_in_cond_labels if var in aggregation_vars]
+        vars_in_cond_agg_labels = [var for var in vars_in_cond_labels if var in aggregation_vars]#为了保持有序，用循环没有用
+        #交集的方式求
         vars_not_in_cond_labels = [var for var in formula.free_vars if var not in vars_in_cond_labels]
         formula_new_vars_order = vars_in_cond_not_agg_labels + vars_in_cond_agg_labels + vars_not_in_cond_labels
-
+        #顺序:先cond,然后agg,最后两者都没有的公式中的变量,为了后面做pytorch广播时从右侧对齐.vars_not_in_cond_labels维度不确定，所以留在最后
         # we need to construct a dict to remove duplicate diag entries inside the labels
         # these duplicates would interfere with the transposition operation
-        formula = Quantifier.transpose_vars(formula, list(dict.fromkeys(formula_new_vars_order)))
+        formula = Quantifier.transpose_vars(formula, list(dict.fromkeys(formula_new_vars_order)))#dict.fromkeys兼顾“去重”与“保序”
 
         # compute the boolean mask using the variables in the condition
         # make the shapes of the variables in the condition compatible in order to apply the condition element-wisely
         cond_vars, vars_order_in_cond, n_individuals_per_var = process_ltn_objects(cond_vars)
+        #cond_vars是加工好的对象列表
         mask = cond_fn(*cond_vars)  # creates the mask
         # give the mask the correct shape after the condition has been computed
-        mask = torch.reshape(mask, tuple(n_individuals_per_var))
+        mask = torch.reshape(mask, tuple(n_individuals_per_var))# n_individuals_per_var 是每个原始变量的独立维度的列表
 
         # transpose the mask dimensions according to the var order in formula_grounding
         # create LTN object for the mask with associated free variables
-        mask = LTNObject(mask, vars_order_in_cond)
+        mask = LTNObject(mask, vars_order_in_cond)#vars_order_in_cond是process_ltn_objects加工过的变量label顺序列表
 
-        cond_new_vars_order = vars_in_cond_not_agg_labels + vars_in_cond_agg_labels
+        cond_new_vars_order = vars_in_cond_not_agg_labels + vars_in_cond_agg_labels#将需要调整的轴排到后面
 
         # we need to construct a dict to remove duplicate diag entries inside the labels
         # these duplicates would interfere with the transposition operation
         mask = Quantifier.transpose_vars(mask, list(dict.fromkeys(cond_new_vars_order)))
-
+        #用cond_new_vars_order的顺序调换变量的位置
         # make formula and mask of the same shape in order to apply the mask element-wisely
         if formula.shape() != mask.shape():
             # I have to rearrange the size of the mask if it has a different size respect to the formula
             # this is needed to apply an element-wise torch.where in order to apply the mask
             (formula, mask), vars, n_individuals_per_var = process_ltn_objects([formula, mask])
+            #返回的第一个元素一定是包括2个元素的列表，这里直接接收
             mask.value = mask.value.view(n_individuals_per_var)
             # this fix the side effect due to call to process_ltn_objects
             formula.value = formula.value.view(n_individuals_per_var)
