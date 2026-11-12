@@ -1477,7 +1477,7 @@ class Quantifier:
         # check if formula is in [0., 1.]
         ltn.fuzzy_ops.check_values(formula.value)
 
-        if isinstance(vars, Variable):#防止单个量词，做成列表后续来统一使用set去重
+        if isinstance(vars, Variable):#防止单个量词在后面去重的时候报错，做成列表后续来统一使用set去重
             vars = [vars]  # this serves in the case vars is just a variable and not a list of variables
 
         # aggregation_vars contains the labels of the variables on which the quantification has to be performed
@@ -1485,13 +1485,14 @@ class Quantifier:
 
         # check if guarded quantification has to be performed
         if cond_fn is not None and cond_vars is not None:
-            # check that cond_vars are LTN variables
+            # check that cond_vars are LTN variables,如果是列表类型，就用all检查所有是否是varibale对象，如果不是列表
+            #就单个判断是否是variable
             if not all(isinstance(x, Variable) for x in cond_vars) if isinstance(cond_vars, list) \
                     else not isinstance(cond_vars, Variable):
                 raise TypeError("Expected parameter 'cond_vars' to be a list of Variable or a "
                                 "Variable, but got " + str([type(v) for v in cond_vars])
                                 if isinstance(cond_vars, list) else type(cond_vars))
-            # check that cond_fn is a function
+            # check that cond_fn is a function,lambdatype is a old story.not restrict to lambda function
             if not isinstance(cond_fn, types.LambdaType):
                 raise TypeError("Expected parameter 'cond_fn' to be a function, but got " + str(type(cond_fn)))
 
@@ -1517,7 +1518,7 @@ class Quantifier:
                 torch.isnan(output),
                 rep_value,
                 output.double()
-            )
+            )#替换所有出现nan值的地方
         else:  # in this case, the guarded quantification has not to be performed
             # aggregation_dims are the dimensions on which the aggregation has to be performed
             # the aggregator aggregates only on the axes given by aggregations_dims
@@ -1536,13 +1537,12 @@ class Quantifier:
 
         Parameters
         ----------
-        举例 age(x)<age(y),则传入的cond_vars=[x,y],cond_fn=lambda x,y: age(x)<age(y),cond_fn也可以是普通函数
         formula: :class:`LTNObject`
             Formula that has to be quantified.
         cond_vars: :obj:`list`
             List of LTN variables that appear in the guarded quantification condition.
         cond_fn: :class:`function`
-            Function which implements the guarded quantification condition.
+            Function which implements the guarded quantification condition.需要将cond_vars传入再计算
         aggregation_vars: :obj:`list`
             List of labels of the variables on which the quantification has to be performed.
 
@@ -1556,49 +1556,47 @@ class Quantifier:
         """
         # reshape the formula in such a way it now includes the dimensions related to the variables in the condition
         # this has to be done only if the formula does not include some variables in the condition yet
-        #这个防御没有必要，类似公式age(x)<age(y),cond_vars=[x,y],出现了x,y不在公式formula里面出现，本身式子就是错误的
         cond_vars_not_in_formula = [var for var in cond_vars if var.free_vars[0] not in formula.free_vars]
-        if cond_vars_not_in_formula:
+        #变量层面上，free_vars列表只有一个字符串元素
+        if cond_vars_not_in_formula:#如果列表非空
             proc_objs, _, n_ind = process_ltn_objects([formula] + cond_vars_not_in_formula)
+            #n_ind是label对应的维度0的数量,list类型,proc_objs只有一个元素
             formula = proc_objs[0]
-            formula.value = formula.value.view(tuple(n_ind))
+            formula.value = formula.value.view(tuple(n_ind))#调整维度
 
         # set the masked (guarded) vars on the first axes
         vars_in_cond_labels = [var.free_vars[0] for var in cond_vars]
         vars_in_cond_not_agg_labels = [var for var in vars_in_cond_labels if var not in aggregation_vars]
-        vars_in_cond_agg_labels = [var for var in vars_in_cond_labels if var in aggregation_vars]#为了保持有序，用循环没有用
-        #交集的方式求
+        vars_in_cond_agg_labels = [var for var in vars_in_cond_labels if var in aggregation_vars]
         vars_not_in_cond_labels = [var for var in formula.free_vars if var not in vars_in_cond_labels]
         formula_new_vars_order = vars_in_cond_not_agg_labels + vars_in_cond_agg_labels + vars_not_in_cond_labels
-        #顺序:先cond,然后agg,最后两者都没有的公式中的变量,为了后面做pytorch广播时从右侧对齐.vars_not_in_cond_labels维度不确定，所以留在最后
+
         # we need to construct a dict to remove duplicate diag entries inside the labels
-        # these duplicates would interfere with the transposition operation
-        formula = Quantifier.transpose_vars(formula, list(dict.fromkeys(formula_new_vars_order)))#dict.fromkeys兼顾“去重”与“保序”
+        # these duplicates would interfere with the transposition operation 重排变量顺序
+        formula = Quantifier.transpose_vars(formula, list(dict.fromkeys(formula_new_vars_order)))
 
         # compute the boolean mask using the variables in the condition
         # make the shapes of the variables in the condition compatible in order to apply the condition element-wisely
         cond_vars, vars_order_in_cond, n_individuals_per_var = process_ltn_objects(cond_vars)
-        #cond_vars是加工好的对象列表
         mask = cond_fn(*cond_vars)  # creates the mask
         # give the mask the correct shape after the condition has been computed
-        mask = torch.reshape(mask, tuple(n_individuals_per_var))# n_individuals_per_var 是每个原始变量的独立维度的列表
+        mask = torch.reshape(mask, tuple(n_individuals_per_var))
 
         # transpose the mask dimensions according to the var order in formula_grounding
         # create LTN object for the mask with associated free variables
-        mask = LTNObject(mask, vars_order_in_cond)#vars_order_in_cond是process_ltn_objects加工过的变量label顺序列表
+        mask = LTNObject(mask, vars_order_in_cond)
 
-        cond_new_vars_order = vars_in_cond_not_agg_labels + vars_in_cond_agg_labels#将需要调整的轴排到后面
+        cond_new_vars_order = vars_in_cond_not_agg_labels + vars_in_cond_agg_labels
 
         # we need to construct a dict to remove duplicate diag entries inside the labels
         # these duplicates would interfere with the transposition operation
         mask = Quantifier.transpose_vars(mask, list(dict.fromkeys(cond_new_vars_order)))
-        #用cond_new_vars_order的顺序调换变量的位置
+
         # make formula and mask of the same shape in order to apply the mask element-wisely
         if formula.shape() != mask.shape():
             # I have to rearrange the size of the mask if it has a different size respect to the formula
             # this is needed to apply an element-wise torch.where in order to apply the mask
             (formula, mask), vars, n_individuals_per_var = process_ltn_objects([formula, mask])
-            #返回的第一个元素一定是包括2个元素的列表，这里直接接收
             mask.value = mask.value.view(n_individuals_per_var)
             # this fix the side effect due to call to process_ltn_objects
             formula.value = formula.value.view(n_individuals_per_var)

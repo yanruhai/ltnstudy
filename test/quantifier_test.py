@@ -19,8 +19,11 @@ print(out)
 
 Forall = ltn.Quantifier(ltn.fuzzy_ops.AggregPMeanError(), quantifier='f')
 print(Forall)
+print(f'x.shape={x.value.shape},y.shape={y.value.shape},p(x,y).shape={out.value.shape}')
 out = Forall(x, p(x, y))
+print(f"after froall-x shape={out.value.shape}")
 print(out)
 print(out.value)
 print(out.free_vars)
 print(out.shape())
+
