@@ -103,7 +103,7 @@ def check_mask(mask, xs):
     :class:`ValueError`
         Raises when the shapes of the inputs differ or `mask` is not of the correct type.
     """
-    if mask.shape != xs.shape:
+    if mask.shape != xs.shape:#rewrite __eq__ at the torch.Size
         raise ValueError("'xs' and 'mask' must have the same shape.")
     if not isinstance(mask, (torch.BoolTensor, torch.cuda.BoolTensor)):
         raise ValueError("'mask' must be a torch.BoolTensor or torch.cuda.BoolTensor.")

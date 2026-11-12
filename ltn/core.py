@@ -1477,7 +1477,7 @@ class Quantifier:
         # check if formula is in [0., 1.]
         ltn.fuzzy_ops.check_values(formula.value)
 
-        if isinstance(vars, Variable):#防止单个量词，做成列表后续来统一使用set去重
+        if isinstance(vars, Variable):#防止单个量词在后面去重的时候报错，做成列表后续来统一使用set去重
             vars = [vars]  # this serves in the case vars is just a variable and not a list of variables
 
         # aggregation_vars contains the labels of the variables on which the quantification has to be performed
@@ -1492,7 +1492,7 @@ class Quantifier:
                 raise TypeError("Expected parameter 'cond_vars' to be a list of Variable or a "
                                 "Variable, but got " + str([type(v) for v in cond_vars])
                                 if isinstance(cond_vars, list) else type(cond_vars))
-            # check that cond_fn is a function
+            # check that cond_fn is a function,lambdatype is a old story.not restrict to lambda function
             if not isinstance(cond_fn, types.LambdaType):
                 raise TypeError("Expected parameter 'cond_fn' to be a function, but got " + str(type(cond_fn)))
 
@@ -1518,7 +1518,7 @@ class Quantifier:
                 torch.isnan(output),
                 rep_value,
                 output.double()
-            )
+            )#替换所有出现nan值的地方
         else:  # in this case, the guarded quantification has not to be performed
             # aggregation_dims are the dimensions on which the aggregation has to be performed
             # the aggregator aggregates only on the axes given by aggregations_dims
@@ -1572,7 +1572,7 @@ class Quantifier:
         formula_new_vars_order = vars_in_cond_not_agg_labels + vars_in_cond_agg_labels + vars_not_in_cond_labels
 
         # we need to construct a dict to remove duplicate diag entries inside the labels
-        # these duplicates would interfere with the transposition operation
+        # these duplicates would interfere with the transposition operation 重排变量顺序
         formula = Quantifier.transpose_vars(formula, list(dict.fromkeys(formula_new_vars_order)))
 
         # compute the boolean mask using the variables in the condition
