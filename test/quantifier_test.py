@@ -27,3 +27,34 @@ print(out.value)
 print(out.free_vars)
 print(out.shape())
 
+out = Forall([x, y], p(x, y))
+print(out)
+print(out.shape())
+
+Exists = ltn.Quantifier(ltn.fuzzy_ops.AggregPMean(), quantifier='e')
+print(Exists)
+out = Forall(x, Exists(y, p(x, y)))
+print(out)
+
+print(out.free_vars)
+print(out.shape())
+
+out = Forall([x, y], p(x, y),
+    cond_vars=[x],
+    cond_fn=lambda x: torch.less(torch.sum(x.value, dim=1), 1.))
+print(out)
+
+x = ltn.Variable('x', torch.tensor([[0.3, 1.3],
+                                         [0.3, 0.3]]))
+y = ltn.Variable('y', torch.tensor([[2.3, 0.3],
+                                    [1.2, 3.4]]))
+out = Forall(ltn.diag(x, y), p(x, y)) # with diagonal quantification
+out_without_diag = Forall([x, y], p(x, y)) # without diagonal quantification
+print(out_without_diag)
+
+print(out_without_diag.value)
+print(out)
+print(out.value)
+print(out.free_vars)
+
+print(out.shape())
