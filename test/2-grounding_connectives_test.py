@@ -91,6 +91,6 @@ print(Exists(d,
       Forall([x, y],
             Eq(x, y),
             cond_vars=[x, y, d],
-            cond_fn=lambda x, y, d: dist(x, y) < d.value
+            cond_fn=lambda x, y, d: dist(x, y) < d.value#l(50,50,1)<r(9,)=>r(1,1,9)=>r(50,50,9)=>l(50,50,9)
             )).value)
 
