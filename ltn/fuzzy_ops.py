@@ -1666,7 +1666,7 @@ class SatAgg:
             raise ValueError("Expected parameter 'closed_formulas' to be a tuple of LTNObject and/or tensors "
                              "containing scalars, but got the following shapes: " +
                              str([f.shape() for f in closed_formulas]))
-        truth_values = torch.stack(truth_values, dim=0)
+        truth_values = torch.stack(truth_values, dim=0)#堆成一个一维张量
         # check truth values of operands are in [0., 1.] before computing the SatAgg aggregation
         check_values(truth_values)
 

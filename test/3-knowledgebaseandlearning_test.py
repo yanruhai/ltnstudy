@@ -81,7 +81,7 @@ for epoch in range(2000):
         C(a, l_a),
         C(b, l_b),
         Forall([x1, x2, l], Implies(Sim(x1, x2), Equiv(C(x1, l), C(x2, l))))
-    )
+    )#这里所有的公式经过聚合，最后都成为tensor的标量,
     loss.backward()
     optimizer.step()
     if epoch%200 == 0:
