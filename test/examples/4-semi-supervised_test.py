@@ -288,6 +288,9 @@ for epoch in range(20):
                 cond_fn=lambda d1, d2, z: torch.eq(d1.value + d2.value, z.value),
                 p=p
             )).value
+        #diag先将images_x,image_y,labels_z维度合并，进入digit_s_d谓词分别运算，进入and时保留3个
+        #维度，即diag，d1,d2,再进入mask,对d1,d2,diag后的labels_z做掩码，然后用exists消除d1,d2两个
+        #维度，最后只有diag维度，用forall消除
         loss = 1. - sat_agg
         loss.backward()
         optimizer.step()

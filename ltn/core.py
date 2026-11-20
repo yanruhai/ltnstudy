@@ -1557,6 +1557,7 @@ class Quantifier:
         # reshape the formula in such a way it now includes the dimensions related to the variables in the condition
         # this has to be done only if the formula does not include some variables in the condition yet
         cond_vars_not_in_formula = [var for var in cond_vars if var.free_vars[0] not in formula.free_vars]
+        #这个多出的变量后面经过process_ltn_objects，维度在该函数结束后会保留
         #变量层面上，free_vars列表只有一个字符串元素
         if cond_vars_not_in_formula:#如果列表非空
             proc_objs, _, n_ind = process_ltn_objects([formula] + cond_vars_not_in_formula)
@@ -1566,14 +1567,19 @@ class Quantifier:
 
         # set the masked (guarded) vars on the first axes
         vars_in_cond_labels = [var.free_vars[0] for var in cond_vars]
+        # vars_in_cond_labels:mask的conditon里所有的自由变量
         vars_in_cond_not_agg_labels = [var for var in vars_in_cond_labels if var not in aggregation_vars]
+        # vars_in_cond_not_agg_labels：条件变量，但不被当前量词消除，比如 z
         vars_in_cond_agg_labels = [var for var in vars_in_cond_labels if var in aggregation_vars]
+        #vars_in_cond_agg_labels：条件变量，且要被当前量词消除，比如 d1, d2
         vars_not_in_cond_labels = [var for var in formula.free_vars if var not in vars_in_cond_labels]
+        #vars_not_in_cond：公式里其他变量，留给外层处理
         formula_new_vars_order = vars_in_cond_not_agg_labels + vars_in_cond_agg_labels + vars_not_in_cond_labels
-
+        #按顺序重排，一般是从左往右的计算
         # we need to construct a dict to remove duplicate diag entries inside the labels
         # these duplicates would interfere with the transposition operation 重排变量顺序
         formula = Quantifier.transpose_vars(formula, list(dict.fromkeys(formula_new_vars_order)))
+        #dict.fromkeys保持列表顺序，并且去重
 
         # compute the boolean mask using the variables in the condition
         # make the shapes of the variables in the condition compatible in order to apply the condition element-wisely
