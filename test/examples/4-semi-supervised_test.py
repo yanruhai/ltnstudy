@@ -83,7 +83,7 @@ ax.set_title('First operand')
 ax = fig.add_subplot(1, 2, 2)
 imgplot = plt.imshow(first_example_images[1].permute(1, 2, 0))
 ax.set_title('Second operand')
-plt.show()
+
 print("The target label (sum) for these operands is: %d" % first_example_label.item())
 
 from torch.nn.init import xavier_uniform_, normal_, kaiming_uniform_
@@ -252,10 +252,10 @@ class DataLoader(object):
             yield digits, addition_labels
 
 # create train and test loader
-single_train_loader = DataLoader(single_d_train_set, 32, shuffle=True)
-single_test_loader = DataLoader(single_d_test_set, 32, shuffle=False)
-multi_d_train_loader = DataLoader(multi_d_train_set, 32, shuffle=True)
-multi_d_test_loader = DataLoader(multi_d_test_set, 32, shuffle=False)
+single_train_loader = DataLoader(single_d_train_set, 128, shuffle=True)
+single_test_loader = DataLoader(single_d_test_set, 128, shuffle=False)
+multi_d_train_loader = DataLoader(multi_d_train_set, 128, shuffle=True)
+multi_d_test_loader = DataLoader(multi_d_test_set, 128, shuffle=False)
 
 optimizer = torch.optim.Adam(Digit_s_d.parameters(), lr=0.001)
 
